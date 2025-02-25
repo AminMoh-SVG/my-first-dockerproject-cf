@@ -18,7 +18,7 @@ on:
 env:
   AWS_REGION: "ap-southeast-2"
   ECR_REPOSITORY: "my-first-dockerproject"
-  DOCKER_IMAGE: "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest"
+  DOCKER_IMAGE: "aminmockrs1311/my-first-dockerproject:latest"
 
 jobs:
   build-and-deploy:
