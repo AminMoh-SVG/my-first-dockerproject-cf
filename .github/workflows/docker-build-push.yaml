@@ -99,7 +99,7 @@ jobs:
                 --task-definition "$LATEST_TASK_DEF" \
                 --desired-count 1 \
                 --launch-type FARGATE \
-                --network-configuration "awsvpcConfiguration={subnets=[subnet-xxxxxxxx],securityGroups=[sg-xxxxxxxx],assignPublicIp=ENABLED}"
+                --network-configuration "awsvpcConfiguration={subnets=[subnet-05ed08580ad610535],securityGroups=[sg-08c6b2beed556f426],assignPublicIp=ENABLED}"
           else
             echo "ECS service already exists."
           fi
