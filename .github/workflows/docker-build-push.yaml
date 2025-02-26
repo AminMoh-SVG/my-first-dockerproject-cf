@@ -55,24 +55,62 @@ jobs:
       - name: Push image to AWS ECR
         run: docker push 307946647513.dkr.ecr.ap-southeast-2.amazonaws.com/my-first-dockerproject:latest
 
+      # ✅ Ensure ECS Cluster Exists
+      - name: Ensure ECS Cluster Exists
+        run: |
+          CLUSTER_STATUS=$(aws ecs describe-clusters --clusters my-cluster --region ap-southeast-2 --query "clusters[0].status" --output text 2>/dev/null || echo "MISSING")
+          if [[ "$CLUSTER_STATUS" == "MISSING" ]]; then
+            echo "Creating ECS cluster..."
+            aws ecs create-cluster --cluster-name my-cluster --region ap-southeast-2
+          else
+            echo "ECS cluster already exists."
+          fi
+
+      # ✅ Register ECS Task Definition
+      - name: Register ECS Task Definition
+        run: |
+          cat <<EOF > task-def.json
+          {
+            "family": "my-task-definition",
+            "containerDefinitions": [
+              {
+                "name": "my-container",
+                "image": "307946647513.dkr.ecr.ap-southeast-2.amazonaws.com/my-first-dockerproject:latest",
+                "memory": 512,
+                "cpu": 256,
+                "essential": true
+              }
+            ]
+          }
+          EOF
+          aws ecs register-task-definition --cli-input-json file://task-def.json
+
       # ✅ Ensure ECS Service Exists
       - name: Ensure ECS Service Exists
         run: |
-          SERVICE_ARN=$(aws ecs list-services --cluster my-cluster --region ap-southeast-2 --query "serviceArns[]" --output text)
-          if [[ -z "$SERVICE_ARN" ]]; then
+          SERVICE_COUNT=$(aws ecs list-services --cluster my-cluster --region ap-southeast-2 --query "serviceArns" --output text | wc -w)
+          if [[ "$SERVICE_COUNT" -eq 0 ]]; then
               echo "Creating ECS service..."
-              aws ecs create-service --cluster my-cluster --service-name my-ecs-service \
-                --task-definition my-task-definition --desired-count 1 --launch-type FARGATE
+              LATEST_TASK_DEF=$(aws ecs describe-task-definition --task-definition my-task-definition --query "taskDefinition.taskDefinitionArn" --output text)
+              
+              aws ecs create-service \
+                --cluster my-cluster \
+                --service-name my-ecs-service \
+                --task-definition "$LATEST_TASK_DEF" \
+                --desired-count 1 \
+                --launch-type FARGATE \
+                --network-configuration "awsvpcConfiguration={subnets=[subnet-xxxxxxxx],securityGroups=[sg-xxxxxxxx],assignPublicIp=ENABLED}"
           else
             echo "ECS service already exists."
           fi
-          
+
       # ✅ Deploy Updated Image to ECS
       - name: Deploy to Amazon ECS
         run: |
           aws ecs update-service --cluster my-cluster \
           --service my-ecs-service \
           --force-new-deployment
+
 
 
 
