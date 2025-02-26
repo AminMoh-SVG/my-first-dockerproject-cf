@@ -55,6 +55,12 @@ jobs:
       - name: Push image to AWS ECR
         run: docker push 307946647513.dkr.ecr.ap-southeast-2.amazonaws.com/my-first-dockerproject:latest
 
+      # ✅ Ensure ECS Cluster Exists
+      - name: Ensure ECS Cluster Exists
+        run: |
+            aws ecs describe-clusters --clusters my-cluster --region ap-southeast-2 || \
+            aws ecs create-cluster --cluster-name my-cluster --region ap-southeast-2
+
       # ✅ Deploy Updated Image to ECS
       - name: Deploy to Amazon ECS
         run: |
