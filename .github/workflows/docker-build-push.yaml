@@ -72,6 +72,11 @@ jobs:
           cat <<EOF > task-def.json
           {
             "family": "my-task-definition",
+            "requiresCompatibilities": ["FARGATE"],
+            "networkMode": "awsvpc",
+            "executionRoleArn": "arn:aws:iam::307946647513:role/ecsTaskExecutionRole",
+            "cpu": "256"
+             "memory": "512",
             "containerDefinitions": [
               {
                 "name": "my-container",
@@ -96,7 +101,7 @@ jobs:
               aws ecs create-service \
                 --cluster my-cluster \
                 --service-name my-ecs-service \
-                --task-definition "$LATEST_TASK_DEF" \
+                --task-definition my-task-definition:5 \
                 --desired-count 1 \
                 --launch-type FARGATE \
                 --network-configuration "awsvpcConfiguration={subnets=[subnet-05ed08580ad610535],securityGroups=[sg-08c6b2beed556f426],assignPublicIp=ENABLED}"
