@@ -8,11 +8,53 @@ on:
 
 jobs:
 
-  build:
-
+  build-and-push:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    # Set up Node.js (optional, if needed for build or testing)
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+
+    # Install dependencies & run tests (optional, but recommended for Node.js apps)
+    - name: Install Dependencies
+      run: npm install
+
+    - name: Run Tests
+      run: npm test
+
+    # Build Docker image using a unique tag (commit SHA)
+    - name: Build Docker Image
+      run: docker build . --file Dockerfile --tag my-image-name:${{ github.sha }}
+
+    # Login to Docker Hub (if using Docker Hub)
+    - name: Login to Docker Hub
+      run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+    # Tag and push image to Docker Hub
+    - name: Push Docker Image to Docker Hub
+      run: |
+        docker tag my-image-name:${{ github.sha }} my-dockerhub-username/my-image-name:latest
+        docker tag my-image-name:${{ github.sha }} my-dockerhub-username/my-image-name:${{ github.sha }}
+        docker push my-dockerhub-username/my-image-name:latest
+        docker push my-dockerhub-username/my-image-name:${{ github.sha }}
+
+    # Login to AWS ECR (if using AWS)
+    - name: Login to Amazon ECR
+      run: |
+        aws ecr get-login-password --region ap-southeast-2 | docker login --username AWS --password-stdin 307946647513.dkr.ecr.ap-southeast-2.amazonaws.com
+
+    # Tag and push image to AWS ECR
+    - name: Push Docker Image to AWS ECR
+      run: |
+        docker tag my-image-name:${{ github.sha }} 307946647513.dkr.ecr.ap-southeast-2.amazonaws.com/my-first-dockerproject-cf:latest
+        docker tag my-image-name:${{ github.sha }} 307946647513.dkr.ecr.ap-southeast-2.amazonaws.com/my-first-dockerproject-cf:${{ github.sha }}
+        docker push 307946647513.dkr.ecr.ap-southeast-2.amazonaws.com/my-first-dockerproject-cf:latest
+        docker push 307946647513.dkr.ecr.ap-southeast-2.amazonaws.com/my-first-dockerproject-cf:${{ github.sha }}
+
+

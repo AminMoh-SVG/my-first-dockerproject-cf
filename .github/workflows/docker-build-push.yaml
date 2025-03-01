@@ -7,7 +7,7 @@
 # To get a newer version, you will need to update the SHA.
 # You can also reference a tag or branch, but the action may change without warning.
 
-name: Docker Build and Deploy to AWS ECS
+name: Build and Deploy Node.js App to AWS ECS
 
 on:
   push:
@@ -44,77 +44,96 @@ jobs:
       # ✅ Build and Tag Docker Image
       - name: Build and tag Docker image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-first-dockerproject:latest .
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/my-first-dockerproject:latest 307946647513.dkr.ecr.ap-southeast-2.amazonaws.com/my-first-dockerproject:latest
+          ECR_REPO=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com/my-nodejs-app
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-nodejs-app:latest .
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/my-nodejs-app:latest $ECR_REPO:latest
 
       # ✅ Push Image to Docker Hub
       - name: Push image to Docker Hub
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-first-dockerproject:latest
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-nodejs-app:latest
 
       # ✅ Push Image to AWS ECR
       - name: Push image to AWS ECR
-        run: docker push 307946647513.dkr.ecr.ap-southeast-2.amazonaws.com/my-first-dockerproject:latest
+        run: docker push ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com/my-nodejs-app:latest
+
+      # ✅ Deploy CloudFormation Stack (Runs Before ECS Service)
+      - name: Deploy CloudFormation Stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name nodejs-cloudformation-stack \
+            --template-file terraform/cloudformation-stack.yml \
+            --capabilities CAPABILITY_NAMED_IAM
 
       # ✅ Ensure ECS Cluster Exists
       - name: Ensure ECS Cluster Exists
         run: |
-          CLUSTER_STATUS=$(aws ecs describe-clusters --clusters my-cluster --region ap-southeast-2 --query "clusters[0].status" --output text 2>/dev/null || echo "MISSING")
+          CLUSTER_NAME="my-nodejs-cluster"
+          CLUSTER_STATUS=$(aws ecs describe-clusters --clusters $CLUSTER_NAME --region ap-southeast-2 --query "clusters[0].status" --output text 2>/dev/null || echo "MISSING")
           if [[ "$CLUSTER_STATUS" == "MISSING" ]]; then
             echo "Creating ECS cluster..."
-            aws ecs create-cluster --cluster-name my-cluster --region ap-southeast-2
+            aws ecs create-cluster --cluster-name $CLUSTER_NAME --region ap-southeast-2
           else
             echo "ECS cluster already exists."
           fi
 
-      # ✅ Register ECS Task Definition (Fixed JSON Formatting)
+      # ✅ Register ECS Task Definition (Updated JSON Format)
       - name: Register ECS Task Definition
         run: |
           cat <<EOF > task-def.json
           {
-            "family": "my-task-definition",
+            "family": "my-nodejs-task",
             "requiresCompatibilities": ["FARGATE"],
             "networkMode": "awsvpc",
-            "executionRoleArn": "arn:aws:iam::307946647513:role/ecsTaskExecutionRole",
-            "cpu": "256",
-            "memory": "512",
+            "executionRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskExecutionRole",
+            "cpu": "512",
+            "memory": "1024",
             "containerDefinitions": [
               {
-                "name": "my-container",
-                "image": "307946647513.dkr.ecr.ap-southeast-2.amazonaws.com/my-first-dockerproject:latest",
+                "name": "nodejs-container",
+                "image": "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com/my-nodejs-app:latest",
                 "memory": 512,
                 "cpu": 256,
-                "essential": true
+                "essential": true,
+                "portMappings": [
+                  {
+                    "containerPort": 3000,
+                    "hostPort": 3000
+                  }
+                ]
               }
             ]
           }
           EOF
           aws ecs register-task-definition --cli-input-json file://task-def.json
 
-      # ✅ Ensure ECS Service Exists (Fixed Task Definition Fetch)
+      # ✅ Ensure ECS Service Exists
       - name: Ensure ECS Service Exists
         run: |
-          SERVICE_COUNT=$(aws ecs list-services --cluster my-cluster --region ap-southeast-2 --query "serviceArns" --output text | wc -w)
+          SERVICE_NAME="my-nodejs-service"
+          CLUSTER_NAME="my-nodejs-cluster"
+          SERVICE_COUNT=$(aws ecs list-services --cluster $CLUSTER_NAME --region ap-southeast-2 --query "serviceArns" --output text | wc -w)
           if [[ "$SERVICE_COUNT" -eq 0 ]]; then
               echo "Creating ECS service..."
-              LATEST_TASK_DEF=$(aws ecs describe-task-definition --task-definition my-task-definition --query "taskDefinition.taskDefinitionArn" --output text)
+              LATEST_TASK_DEF=$(aws ecs describe-task-definition --task-definition my-nodejs-task --query "taskDefinition.taskDefinitionArn" --output text)
               
               aws ecs create-service \
-                --cluster my-cluster \
-                --service-name my-ecs-service \
+                --cluster $CLUSTER_NAME \
+                --service-name $SERVICE_NAME \
                 --task-definition "$LATEST_TASK_DEF" \
                 --desired-count 1 \
                 --launch-type FARGATE \
-                --network-configuration "awsvpcConfiguration={subnets=[subnet-09ac76a80c6155f4b],securityGroups=[sg-02aeb2504d38b14b2],assignPublicIp=ENABLED}"
+                --network-configuration "awsvpcConfiguration={subnets=[subnet-xxxxxx],securityGroups=[sg-xxxxxx],assignPublicIp=ENABLED}"
           else
             echo "ECS service already exists."
           fi
 
-      # ✅ Deploy Updated Image to ECS
-      - name: Deploy to Amazon ECS
+      # ✅ Update ECS Service to Use New Docker Image
+      - name: Update ECS Service
         run: |
-          aws ecs update-service --cluster my-cluster \
-          --service my-ecs-service \
-          --force-new-deployment
+          aws ecs update-service --cluster my-nodejs-cluster \
+            --service my-nodejs-service \
+            --force-new-deployment
+
 
 
 
