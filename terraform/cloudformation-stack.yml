@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Deploy EC2, EBS, S3, and VPC"
+
+Resources:
+  # 1️⃣ EC2 Instance with Security Group
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Enable SSH access"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: YOUR_PUBLIC_IP/32  # Replace with your actual IP
+
+  MyInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0f71013b2c8bd2c29
+      InstanceType: t2.micro
+      SecurityGroups:
+        - !Ref InstanceSecurityGroup
+
+  # 2️⃣ Attach EBS Volume
+  MyVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: ap-southeast-2  # Change based on your region
+      Size: 10
+
+  MyVolumeAttachment:
+    Type: AWS::EC2::VolumeAttachment
+    Properties:
+      InstanceId: !Ref MyInstance
+      VolumeId: !Ref MyVolume
+      Device: /dev/sdf
+
+  # 3️⃣ Create an S3 Bucket
+  MyS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: my-first-dockerproject-cf-bucket  # Optional
+
+  # 4️⃣ Create a VPC
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: "10.0.0.0/16"
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+
