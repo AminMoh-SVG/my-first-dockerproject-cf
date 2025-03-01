@@ -1,5 +1,5 @@
 {
-  "name": "my-first-dockerproject",
+  "name": "my-first-dockerproject-cf",
   "version": "1.0.0",
   "main": "Server.js",
   "scripts": {
@@ -8,15 +8,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AminMoh-SVG/my-first-dockerproject.git"
+    "url": "git+https://github.com/AminMoh-SVG/my-first-dockerproject-cf.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/AminMoh-SVG/my-first-dockerproject/issues"
+    "url": "https://github.com/AminMoh-SVG/my-first-dockerproject-cf/issues"
   },
-  "homepage": "https://github.com/AminMoh-SVG/my-first-dockerproject#readme",
+  "homepage": "https://github.com/AminMoh-SVG/my-first-dockerproject-cf#readme",
   "description": "",
   "dependencies": {
     "express": "^4.21.2"
