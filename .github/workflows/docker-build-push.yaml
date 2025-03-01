@@ -64,18 +64,6 @@ jobs:
             --template-file terraform/cloudformation-stack.yml \
             --capabilities CAPABILITY_NAMED_IAM
 
-      # ✅ Ensure ECS Cluster Exists
-      - name: Ensure ECS Cluster Exists
-        run: |
-          CLUSTER_NAME="my-nodejs-cluster"
-          CLUSTER_STATUS=$(aws ecs describe-clusters --clusters $CLUSTER_NAME --region ap-southeast-2 --query "clusters[0].status" --output text 2>/dev/null || echo "MISSING")
-          if [[ "$CLUSTER_STATUS" == "MISSING" ]]; then
-            echo "Creating ECS cluster..."
-            aws ecs create-cluster --cluster-name $CLUSTER_NAME --region ap-southeast-2
-          else
-            echo "ECS cluster already exists."
-          fi
-
       # ✅ Register ECS Task Definition (Updated JSON Format)
       - name: Register ECS Task Definition
         run: |
@@ -91,8 +79,8 @@ jobs:
               {
                 "name": "nodejs-container",
                 "image": "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-southeast-2.amazonaws.com/my-nodejs-app:latest",
-                "memory": 2048,
-                "cpu": ,1024
+                "memory": 1024,
+                "cpu": 512,
                 "essential": true,
                 "portMappings": [
                   {
@@ -106,33 +94,14 @@ jobs:
           EOF
           aws ecs register-task-definition --cli-input-json file://task-def.json
 
-      # ✅ Ensure ECS Service Exists
-      - name: Ensure ECS Service Exists
+      # ✅ Ensure ECS Service Exists or Update It
+      - name: Update ECS Service
         run: |
           SERVICE_NAME="my-nodejs-service"
           CLUSTER_NAME="my-nodejs-cluster"
-          SERVICE_COUNT=$(aws ecs list-services --cluster $CLUSTER_NAME --region ap-southeast-2 --query "serviceArns" --output text | wc -w)
-          if [[ "$SERVICE_COUNT" -eq 0 ]]; then
-              echo "Creating ECS service..."
-              LATEST_TASK_DEF=$(aws ecs describe-task-definition --task-definition my-nodejs-task --query "taskDefinition.taskDefinitionArn" --output text)
-              
-              aws ecs create-service \
-                --cluster $CLUSTER_NAME \
-                --service-name $SERVICE_NAME \
-                --task-definition "$LATEST_TASK_DEF" \
-                --desired-count 1 \
-                --launch-type FARGATE \
-                --network-configuration "awsvpcConfiguration={subnets=[subnet-xxxxxx],securityGroups=[sg-xxxxxx],assignPublicIp=ENABLED}"
-          else
-            echo "ECS service already exists."
-          fi
+          LATEST_TASK_DEF=$(aws ecs describe-task-definition --task-definition my-nodejs-task --query "taskDefinition.taskDefinitionArn" --output text)
+          aws ecs update-service --cluster $CLUSTER_NAME --service $SERVICE_NAME --task-definition "$LATEST_TASK_DEF" --force-new-deployment
 
-      # ✅ Update ECS Service to Use New Docker Image
-      - name: Update ECS Service
-        run: |
-          aws ecs update-service --cluster my-nodejs-cluster \
-            --service my-nodejs-service \
-            --force-new-deployment
 
 
 
