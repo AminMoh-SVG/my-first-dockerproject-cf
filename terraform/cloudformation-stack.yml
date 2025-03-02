@@ -1,17 +1,21 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: "Deploy EC2, EBS, S3, and VPC"
+Description: "Deploy EC2, EBS, S3, VPC, ECS, and ECR"
 
 Resources:
   # 1️⃣ EC2 Instance with Security Group
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: "Enable SSH access"
+      GroupDescription: "Enable SSH and App Access"
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
           CidrIp: YOUR_PUBLIC_IP/32  # Replace with your actual IP
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          CidrIp: 0.0.0.0/0  # Allow public access to Node.js app
 
   MyInstance:
     Type: AWS::EC2::Instance
@@ -48,4 +52,87 @@ Resources:
       CidrBlock: "10.0.0.0/16"
       EnableDnsSupport: true
       EnableDnsHostnames: true
+
+  # 5️⃣ Create ECS Cluster
+  MyECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: my-ecs-cluster
+
+  # 6️⃣ Create an ECR Repository
+  MyECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: my-first-dockerproject-cf
+
+  # 7️⃣ Define ECS Task Definition
+  MyTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: my-task
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: "2048"
+      Memory: "8182"
+      NetworkMode: awsvpc
+      ExecutionRoleArn: arn:aws:iam::307946647513:role/ecsTaskExecutionRole  # Update with your IAM role
+      ContainerDefinitions:
+        - Name: my-first-dockerproject-cf
+          Image: 307946647513.dkr.ecr.ap-southeast-2.amazonaws.com/my-first-dockerproject-cf:latest
+          Memory: 8182
+          Cpu: 2048
+          PortMappings:
+            - ContainerPort: 3000
+
+  # 8️⃣ Create ECS Service
+  MyECSService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref MyECSCluster
+      ServiceName: my-ecs-service
+      TaskDefinition: !Ref MyTaskDefinition
+      LaunchType: FARGATE
+      DesiredCount: 1
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - subnet-xxxxxx  # Replace with your actual subnet
+            - subnet-yyyyyy
+          SecurityGroups:
+            - !Ref InstanceSecurityGroup
+          AssignPublicIp: ENABLED
+
+  # 9️⃣ Create Application Load Balancer (ALB)
+  MyALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: my-alb
+      Scheme: internet-facing
+      Type: application
+      SecurityGroups:
+        - !Ref InstanceSecurityGroup
+      Subnets:
+        - subnet-xxxxxx  # Replace with your actual subnet
+        - subnet-yyyyyy
+
+  # 🔟 Create ALB Listener
+  MyALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref MyALB
+      Protocol: HTTP
+      Port: 80
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref MyTargetGroup
+
+  # 1️⃣1️⃣ Create ALB Target Group for ECS
+  MyTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: my-target-group
+      Protocol: HTTP
+      Port: 3000
+      VpcId: !Ref MyVPC
+      TargetType: ip
 
