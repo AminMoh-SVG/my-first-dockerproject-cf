@@ -24,12 +24,13 @@ Resources:
       InstanceType: t2.micro
       SecurityGroups:
         - !Ref InstanceSecurityGroup
+      SubnetId: subnet-0abc123456def7890  # Ensure it's in the correct AZ
 
   # 2️⃣ Attach EBS Volume
   MyVolume:
     Type: AWS::EC2::Volume
     Properties:
-      AvailabilityZone: ap-southeast-2  # Change based on your region
+      AvailabilityZone: !GetAtt MyInstance.AvailabilityZone  # Ensures it matches EC2
       Size: 10
 
   MyVolumeAttachment:
@@ -38,6 +39,7 @@ Resources:
       InstanceId: !Ref MyInstance
       VolumeId: !Ref MyVolume
       Device: /dev/sdf
+    DependsOn: MyInstance  # Ensure EC2 is ready before attaching
 
   # 3️⃣ Create an S3 Bucket
   MyS3Bucket:
@@ -96,8 +98,8 @@ Resources:
       NetworkConfiguration:
         AwsvpcConfiguration:
           Subnets:
-            - subnet-079954b7790a61a71   # Replace with your actual public subnet (my-public-subnet-1)
-            - subnet-07ae8a512e5f8c57a   # Replace with your actual private subnet (my-private-subnet-2)
+            - subnet-0abc123456def7890  # Public subnet in AZ1
+            - subnet-0xyz987654cba3210  # Private subnet in AZ2
           SecurityGroups:
             - !Ref InstanceSecurityGroup
           AssignPublicIp: ENABLED   # Needed if using a public subnet
@@ -112,8 +114,8 @@ Resources:
       SecurityGroups:
         - !Ref InstanceSecurityGroup
       Subnets:
-        - subnet-079954b7790a61a71  # Replace with your actual public subnet (my-public-subnet-1)
-        - subnet-07ae8a512e5f8c57a  # Replace with your actual private subnet (my-private-subnet-2)
+        - subnet-0abc123456def7890  # Public subnet in AZ1
+        - subnet-0xyz987654cba3210  # Private subnet in AZ2
 
   # 🔟 Create ALB Listener
   MyALBListener:
@@ -133,6 +135,5 @@ Resources:
       Name: my-target-group
       Protocol: HTTP
       Port: 3000
-      VpcId: !Ref MyVPC
+      VpcId: !Ref my-vpc-01
       TargetType: ip
-
