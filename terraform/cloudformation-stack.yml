@@ -24,7 +24,7 @@ Resources:
       InstanceType: t2.micro
       SecurityGroups:
         - !Ref InstanceSecurityGroup
-      SubnetId: subnet-0abc123456def7890  # Ensure it's in the correct AZ
+      SubnetId: subnet-079954b7790a61a71  # Ensure it's in the correct AZ
 
   # 2️⃣ Attach EBS Volume
   MyVolume:
@@ -98,8 +98,8 @@ Resources:
       NetworkConfiguration:
         AwsvpcConfiguration:
           Subnets:
-            - subnet-0abc123456def7890  # Public subnet in AZ1
-            - subnet-0xyz987654cba3210  # Private subnet in AZ2
+            - subnet-079954b7790a61a71  # Public subnet in AZ1
+            - subnet-07ae8a512e5f8c57a  # Private subnet in AZ2
           SecurityGroups:
             - !Ref InstanceSecurityGroup
           AssignPublicIp: ENABLED   # Needed if using a public subnet
@@ -114,8 +114,8 @@ Resources:
       SecurityGroups:
         - !Ref InstanceSecurityGroup
       Subnets:
-        - subnet-0abc123456def7890  # Public subnet in AZ1
-        - subnet-0xyz987654cba3210  # Private subnet in AZ2
+        - subnet-079954b7790a61a71  # Public subnet in AZ1
+        - subnet-07ae8a512e5f8c57a  # Private subnet in AZ2
 
   # 🔟 Create ALB Listener
   MyALBListener:
